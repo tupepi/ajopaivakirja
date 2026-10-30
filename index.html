@@ -17,12 +17,15 @@
   #aloita { background: #15803d; }
   #lopeta { background: #c2410c; }
   .linkki { background: none; border: 0; padding: 1rem 0; text-decoration: underline; color: inherit; }
-  #poista { color: #b91c1c; }
+  .poisto { color: #b91c1c; }
   .viesti { color: #b91c1c; }
   .vihje { color: #666; }
-  #paa, #ajo-kaynnissa { display: flex; flex-direction: column; flex: 1; }
-  #paa { min-height: calc(100dvh - 2rem); }
-  #poista { margin-top: auto; }
+  #paa { display: flex; flex-direction: column; min-height: calc(100dvh - 2rem); }
+  .alapalkki { display: flex; justify-content: space-between; }
+  #paa .alapalkki { margin-top: auto; }
+  #pk-lista ul { list-style: none; padding: 0; }
+  .rivi { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid #ddd; padding: .75rem 0; color: inherit; }
+  .rivi span { display: block; }
   dialog button { margin: .5rem .5rem 0 0; padding: .5rem 1rem; }
   .vaara { background: #b91c1c; color: #fff; border: 0; border-radius: .5rem; }
   /* Mittarirulla: kolme 44 px riviä, valittu rivi keskellä korostettuna. */
@@ -41,6 +44,10 @@
 
 <section id="paa" hidden>
   <p id="ilmoitus" role="status"></p>
+  <div id="muistutus" hidden>
+    <p id="muistutus-teksti"></p>
+    <button type="button" id="muistutus-varmuuskopioi">Varmuuskopioi nyt</button>
+  </div>
 
   <div id="ei-ajoa" hidden>
     <button type="button" id="aloita" class="iso">Aloita ajo</button>
@@ -51,9 +58,61 @@
     <p id="auki-varoitus" class="viesti" hidden>Ajo on ollut auki yli vuorokauden. Korjaa lopetusaika, kun lopetat ajon.</p>
     <p id="alkanut"></p>
     <button type="button" id="lopeta" class="iso">Lopeta ajo</button>
-    <button type="button" id="poista" class="linkki">Poista tämä ajo</button>
+  </div>
+
+  <div class="alapalkki">
+    <button type="button" id="avaa-paivakirja" class="linkki">Ajopäiväkirja</button>
+    <button type="button" id="poista" class="linkki poisto" hidden>Poista tämä ajo</button>
   </div>
 </section>
+
+<section id="paivakirja" hidden>
+  <button type="button" id="pk-takaisin" class="linkki">← Takaisin</button>
+  <h1>Ajopäiväkirja</h1>
+  <div class="alapalkki">
+    <button type="button" id="pk-varmuuskopioi" class="linkki">Varmuuskopioi</button>
+    <button type="button" id="pk-tuo" class="linkki">Tuo varmuuskopio</button>
+  </div>
+  <input type="file" id="pk-tiedosto" accept=".json,application/json" hidden>
+  <p id="pk-varmuuskopio" class="vihje"></p>
+  <p id="pk-ilmoitus" role="status"></p>
+  <div id="pk-lista"></div>
+</section>
+
+<form id="muokkaus" hidden novalidate>
+  <h1>Muokkaa ajoa</h1>
+  <label>Alkuaika
+    <input id="m-alkuaika" type="datetime-local">
+  </label>
+  <label>Loppuaika
+    <input id="m-loppuaika" type="datetime-local">
+  </label>
+  <label>Mittarin alkulukema (km)
+    <input id="m-alku" inputmode="numeric" autocomplete="off">
+  </label>
+  <label>Mittarin loppulukema (km)
+    <input id="m-loppu" inputmode="numeric" autocomplete="off">
+  </label>
+  <label>Lähtöpaikka
+    <input id="m-lahto" list="paikat" autocomplete="off">
+  </label>
+  <label>Määränpää
+    <input id="m-maaranpaa" list="paikat" autocomplete="off">
+  </label>
+  <label>Tarkoitus
+    <input id="m-tarkoitus" list="tarkoitukset" autocomplete="off">
+  </label>
+  <label>Lisämatkustajat
+    <input id="m-matkustajat" inputmode="numeric" autocomplete="off" placeholder="0">
+  </label>
+  <label class="valinta"><input id="m-perakarry" type="checkbox"> Peräkärry</label>
+  <p class="viesti" role="alert"></p>
+  <button class="iso">Tallenna</button>
+  <div class="alapalkki">
+    <button type="button" id="m-peruuta" class="linkki">Peruuta</button>
+    <button type="button" id="m-poista" class="linkki poisto">Poista ajo</button>
+  </div>
+</form>
 
 <form id="aloitus" hidden novalidate>
   <h1 id="a-otsikko"></h1>
@@ -114,7 +173,7 @@
 <dialog id="vahvistus">
   <form method="dialog">
     <p id="vahvistus-teksti"></p>
-    <button value="poista" class="vaara">Poista ajo</button>
+    <button value="ok" id="vahvistus-ok" class="vaara"></button>
     <button value="takaisin" autofocus>Takaisin</button>
   </form>
 </dialog>

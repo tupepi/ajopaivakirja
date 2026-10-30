@@ -9,12 +9,36 @@ const $ = (id) => document.getElementById(id);
 
 // --- Apufunktiot ---
 
+// "8.15"
+function aika(iso) {
+  return new Date(iso).toLocaleTimeString('fi-FI', { hour: 'numeric', minute: '2-digit' });
+}
+
+// "29.10."
+function paiva(iso) {
+  const d = new Date(iso);
+  return `${d.getDate()}.${d.getMonth() + 1}.`;
+}
+
+function samaPaiva(a, b) {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
 // "klo 8.15" tänään, muuten "29.10. klo 8.15".
 function klo(iso) {
-  const d = new Date(iso);
-  const aika = d.toLocaleTimeString('fi-FI', { hour: 'numeric', minute: '2-digit' });
-  if (d.toDateString() === new Date().toDateString()) return `klo ${aika}`;
-  return `${d.getDate()}.${d.getMonth() + 1}. klo ${aika}`;
+  if (samaPaiva(iso, Date.now())) return `klo ${aika(iso)}`;
+  return `${paiva(iso)} klo ${aika(iso)}`;
+}
+
+function ajonKm(ajo) {
+  return ajo.mittariLoppu - ajo.mittariAlku;
+}
+
+function elementti(tagi, luokka, teksti) {
+  const el = document.createElement(tagi);
+  if (luokka) el.className = luokka;
+  if (teksti != null) el.textContent = teksti;
+  return el;
 }
 
 // ISO-aika datetime-local-kentän muotoon paikallisessa ajassa.
@@ -44,16 +68,29 @@ function avoinAjo() {
   return db.trips.where('tila').equals('avoin').first();
 }
 
-// Viimeisin valmis ajo, joka alkoi ennen annettua hetkeä.
-function edellinenValmis(ennen = '￿') {
-  return db.trips.where('alkuaika').below(ennen).reverse()
-    .filter((t) => t.tila === 'valmis').first();
+// Viimeisin valmis ajo, joka alkoi ennen annettua hetkeä. Ilman hetkeä viimeisin kaikista.
+function edellinenValmis(ennen, ohitaId) {
+  const ajot = ennen ? db.trips.where('alkuaika').below(ennen) : db.trips.orderBy('alkuaika');
+  return ajot.reverse().filter((t) => t.tila === 'valmis' && t.id !== ohitaId).first();
+}
+
+// Ensimmäinen valmis ajo, joka alkoi annetun hetken jälkeen.
+function seuraavaValmis(jalkeen, ohitaId) {
+  return db.trips.where('alkuaika').above(jalkeen)
+    .filter((t) => t.tila === 'valmis' && t.id !== ohitaId).first();
 }
 
 async function alkulukemanVaroitus(ajo, mittariAlku) {
-  const ed = await edellinenValmis(ajo.alkuaika);
+  const ed = await edellinenValmis(ajo.alkuaika, ajo.id);
   return ed && mittariAlku < ed.mittariLoppu
     ? [`Alkulukema on pienempi kuin edellisen ajon loppulukema (${km.format(ed.mittariLoppu)} km).`]
+    : [];
+}
+
+async function loppulukemanVaroitus(ajo, mittariLoppu) {
+  const seur = await seuraavaValmis(ajo.alkuaika, ajo.id);
+  return seur && mittariLoppu > seur.mittariAlku
+    ? [`Loppulukema on suurempi kuin seuraavan ajon alkulukema (${km.format(seur.mittariAlku)} km).`]
     : [];
 }
 
@@ -79,7 +116,7 @@ function taytaLista(datalist, arvot) {
 }
 
 function nayta(nakyma) {
-  for (const id of ['paa', 'aloitus', 'lopetus']) $(id).hidden = id !== nakyma;
+  for (const id of ['paa', 'aloitus', 'lopetus', 'paivakirja', 'muokkaus']) $(id).hidden = id !== nakyma;
   window.scrollTo(0, 0);
 }
 
@@ -218,24 +255,38 @@ function liitaRulla(input, rulla, alku) {
   paivitaTila();
 }
 
-// Vahvistusikkuna. Palauttaa true vain, jos käyttäjä valitsi "Poista ajo".
-function vahvista(teksti) {
+// Vahvistusikkuna. Palauttaa true vain, jos käyttäjä valitsi punaisen napin.
+function vahvista(teksti, nappi = 'Poista ajo') {
   const ikkuna = $('vahvistus');
   $('vahvistus-teksti').textContent = teksti;
+  $('vahvistus-ok').textContent = nappi;
   ikkuna.returnValue = '';
   ikkuna.showModal();
   return new Promise((resolve) => {
-    ikkuna.addEventListener('close', () => resolve(ikkuna.returnValue === 'poista'), { once: true });
+    ikkuna.addEventListener('close', () => resolve(ikkuna.returnValue === 'ok'), { once: true });
   });
 }
 
 // --- Pääruutu ---
 
-async function naytaPaa(ilmoitus = '') {
+// Muistutus varmuuskopiosta näytetään vain ajon tallennuksen jälkeen.
+async function naytaPaa(ilmoitus = '', muistuta = false) {
   const ajo = await avoinAjo();
   $('ilmoitus').textContent = ilmoitus;
+  $('muistutus').hidden = true;
+  if (muistuta) {
+    ajotMuistissa = await db.trips.toArray();
+    if (varmuuskopioMyohassa(ajotMuistissa)) {
+      const viimeisin = localStorage.getItem(VARMUUSKOPIO_AVAIN);
+      $('muistutus-teksti').textContent = viimeisin
+        ? `Edellinen varmuuskopio on otettu ${paivays(viimeisin)}.`
+        : 'Varmuuskopiota ei ole vielä otettu.';
+      $('muistutus').hidden = false;
+    }
+  }
   $('ei-ajoa').hidden = Boolean(ajo);
   $('ajo-kaynnissa').hidden = !ajo;
+  $('poista').hidden = !ajo;
   if (ajo) {
     $('alkanut').textContent = `Alkanut ${klo(ajo.alkuaika)}${ajo.lahtopaikka ? `, ${ajo.lahtopaikka}` : ''}`;
     $('auki-varoitus').hidden = !aukiLiianKauan(ajo);
@@ -377,7 +428,7 @@ $('lopetus').addEventListener('submit', async (e) => {
     lisamatkustajat,
     perakarry: $('l-perakarry').checked,
   });
-  naytaPaa(`Ajo tallennettu, ${km.format(mittariLoppu - mittariAlku)} km.`);
+  naytaPaa(`Ajo tallennettu, ${km.format(mittariLoppu - mittariAlku)} km.`, true);
 });
 
 // Peruutus palauttaa ajon käynnissä olevaksi.
@@ -385,6 +436,313 @@ $('l-peruuta').addEventListener('click', async () => {
   lopetusKerta++;
   await db.trips.update(Number($('lopetus').dataset.id), { loppuaika: undefined, sijaintiLoppu: undefined });
   naytaPaa();
+});
+
+// --- Päiväkirja ---
+
+// Päiväkirjan vierityskohta, johon palataan muokkauksesta.
+let paivakirjanVieritys = 0;
+
+async function avaaPaivakirja(vieritys = 0, ilmoitus = '') {
+  ajotMuistissa = await db.trips.orderBy('alkuaika').reverse().toArray();
+  const ajot = ajotMuistissa.filter((t) => t.tila === 'valmis');
+  const viimeisin = localStorage.getItem(VARMUUSKOPIO_AVAIN);
+  $('pk-varmuuskopio').textContent = viimeisin ? `Edellinen varmuuskopio ${paivays(viimeisin)}` : 'Varmuuskopiota ei ole vielä otettu.';
+  $('pk-ilmoitus').textContent = ilmoitus;
+  const kuukaudet = new Map();
+  for (const ajo of ajot) {
+    const d = new Date(ajo.alkuaika);
+    const avain = `${d.getFullYear()}-${d.getMonth()}`;
+    if (!kuukaudet.has(avain)) kuukaudet.set(avain, []);
+    kuukaudet.get(avain).push(ajo);
+  }
+
+  const lista = $('pk-lista');
+  lista.replaceChildren();
+  if (!ajot.length) lista.append(elementti('p', 'vihje', 'Ei vielä tallennettuja ajoja.'));
+  for (const kuukauden of kuukaudet.values()) {
+    const nimi = new Date(kuukauden[0].alkuaika).toLocaleDateString('fi-FI', { month: 'long', year: 'numeric' });
+    const kmYhteensa = kuukauden.reduce((summa, ajo) => summa + ajonKm(ajo), 0);
+    const ul = document.createElement('ul');
+    ul.append(...kuukauden.map(paivakirjanRivi));
+    // CSV muodostetaan muistissa olevista ajoista ilman odottelua, jotta iOS:n
+    // jakovalikko avautuu yhä saman napautuksen seurauksena.
+    const vienti = elementti('button', 'linkki', 'Vie CSV');
+    vienti.type = 'button';
+    vienti.addEventListener('click', () => vieCsv(kuukauden));
+    lista.append(
+      elementti('h2', '', nimi[0].toUpperCase() + nimi.slice(1)),
+      elementti('p', 'vihje', `${kuukauden.length} ${kuukauden.length === 1 ? 'ajo' : 'ajoa'} · ${km.format(kmYhteensa)} km`),
+      vienti,
+      ul,
+    );
+  }
+  nayta('paivakirja');
+  window.scrollTo(0, vieritys);
+}
+
+// "ke 29.10. 8.15–9.02 · 42 km", "Koti → Asiakas Oy", tarkoitus.
+function paivakirjanRivi(ajo) {
+  const viikonpaiva = new Date(ajo.alkuaika).toLocaleDateString('fi-FI', { weekday: 'short' });
+  const loppu = samaPaiva(ajo.alkuaika, ajo.loppuaika) ? aika(ajo.loppuaika) : `${paiva(ajo.loppuaika)} ${aika(ajo.loppuaika)}`;
+  const nappi = elementti('button', 'rivi');
+  nappi.type = 'button';
+  nappi.append(
+    elementti('span', '', `${viikonpaiva} ${paiva(ajo.alkuaika)} ${aika(ajo.alkuaika)}–${loppu} · ${km.format(ajonKm(ajo))} km`),
+    elementti('span', '', `${ajo.lahtopaikka ?? '–'} → ${ajo.maaranpaa ?? '–'}`),
+    elementti('span', 'vihje', ajo.tarkoitus ?? 'Ei tarkoitusta'),
+  );
+  nappi.addEventListener('click', () => avaaMuokkaus(ajo.id));
+  const li = document.createElement('li');
+  li.append(nappi);
+  return li;
+}
+
+$('avaa-paivakirja').addEventListener('click', () => avaaPaivakirja());
+$('pk-takaisin').addEventListener('click', () => naytaPaa());
+
+// --- Muokkaus ---
+
+async function avaaMuokkaus(id) {
+  const ajo = await db.trips.get(id);
+  if (!ajo) return avaaPaivakirja(paivakirjanVieritys);
+  paivakirjanVieritys = window.scrollY;
+  const lomake = $('muokkaus');
+  nollaaLomake(lomake);
+  lomake.dataset.id = id;
+  $('m-alkuaika').value = paikallinenAika(ajo.alkuaika);
+  $('m-loppuaika').value = paikallinenAika(ajo.loppuaika);
+  $('m-alku').value = ajo.mittariAlku;
+  $('m-loppu').value = ajo.mittariLoppu;
+  $('m-lahto').value = ajo.lahtopaikka ?? '';
+  $('m-maaranpaa').value = ajo.maaranpaa ?? '';
+  $('m-tarkoitus').value = ajo.tarkoitus ?? '';
+  $('m-matkustajat').value = ajo.lisamatkustajat || '';
+  $('m-perakarry').checked = Boolean(ajo.perakarry);
+  await paivitaEhdotukset();
+  nayta('muokkaus');
+}
+
+// Muuttamaton kenttä säilyttää alkuperäisen ajan sekunteineen. Tyhjä tai virheellinen → null.
+function lomakkeenAika(input, alkuperainen) {
+  if (input.value === paikallinenAika(alkuperainen)) return alkuperainen;
+  const d = new Date(input.value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+$('muokkaus').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const lomake = e.currentTarget;
+  const ajo = await db.trips.get(Number(lomake.dataset.id));
+  if (!ajo) return avaaPaivakirja(paivakirjanVieritys);
+
+  const virheet = [];
+  const varoitukset = [];
+  const alkuaika = lomakkeenAika($('m-alkuaika'), ajo.alkuaika);
+  const loppuaika = lomakkeenAika($('m-loppuaika'), ajo.loppuaika);
+  const mittariAlku = luku($('m-alku').value);
+  const mittariLoppu = luku($('m-loppu').value);
+  const lisamatkustajat = luku($('m-matkustajat').value) ?? 0;
+
+  if (!alkuaika || !loppuaika) virheet.push('Anna alku- ja loppuaika.');
+  else if (loppuaika <= alkuaika) virheet.push('Loppuajan pitää olla alkuajan jälkeen.');
+  if (mittariAlku === null || mittariLoppu === null) virheet.push('Anna molemmat mittarilukemat.');
+  if ([mittariAlku, mittariLoppu, lisamatkustajat].some(Number.isNaN)) {
+    virheet.push('Lukemissa voi olla vain numeroita.');
+  }
+  if (!virheet.length && mittariLoppu < mittariAlku) virheet.push('Loppulukema on pienempi kuin alkulukema.');
+  if (!virheet.length) {
+    const muokattu = { ...ajo, alkuaika };
+    varoitukset.push(
+      ...await alkulukemanVaroitus(muokattu, mittariAlku),
+      ...await loppulukemanVaroitus(muokattu, mittariLoppu),
+    );
+  }
+  if (!tarkista(lomake, virheet, varoitukset)) return;
+
+  await db.trips.update(ajo.id, {
+    alkuaika,
+    loppuaika,
+    mittariAlku,
+    mittariLoppu,
+    lahtopaikka: arvo($('m-lahto')),
+    maaranpaa: arvo($('m-maaranpaa')),
+    tarkoitus: arvo($('m-tarkoitus')),
+    lisamatkustajat,
+    perakarry: $('m-perakarry').checked,
+  });
+  avaaPaivakirja(paivakirjanVieritys);
+});
+
+$('m-peruuta').addEventListener('click', () => avaaPaivakirja(paivakirjanVieritys));
+
+$('m-poista').addEventListener('click', async () => {
+  const ajo = await db.trips.get(Number($('muokkaus').dataset.id));
+  if (!ajo) return avaaPaivakirja(paivakirjanVieritys);
+  if (await vahvista(`Poistetaanko ajo? ${paiva(ajo.alkuaika)} klo ${aika(ajo.alkuaika)}, ${km.format(ajonKm(ajo))} km.`)) {
+    await db.trips.delete(ajo.id);
+    avaaPaivakirja(paivakirjanVieritys);
+  }
+});
+
+// --- CSV-vienti ---
+
+const CSV_SARAKKEET = [
+  'Päivä', 'Alkuaika', 'Loppuaika',
+  'Lähtö', 'Lähtö lat', 'Lähtö lon',
+  'Määränpää', 'Määränpää lat', 'Määränpää lon',
+  'Tarkoitus', 'Mittari alku', 'Mittari loppu', 'Km', 'Lisämatkustajat', 'Peräkärry',
+];
+// BOM ja CRLF, jotta suomalainen Excel avaa tiedoston oikein.
+const BOM = String.fromCharCode(0xfeff);
+const RIVINVAIHTO = String.fromCharCode(13, 10);
+
+// Puolipisteen, lainausmerkin tai välilyönnin sisältävä kenttä lainausmerkkeihin.
+function csvKentta(arvo) {
+  const s = arvo == null ? '' : String(arvo);
+  return /[;"\s]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+}
+
+// Koordinaatti pilkulla, jotta Excel lukee sen numerona.
+function koordinaatti(x) {
+  return x == null ? '' : x.toFixed(6).replace('.', ',');
+}
+
+// "08:15"
+function kellonaika(iso) {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function ajojenCsv(ajot) {
+  const rivit = [...ajot]
+    .sort((a, b) => a.alkuaika.localeCompare(b.alkuaika))
+    .map((a) => [
+      `${paiva(a.alkuaika)}${new Date(a.alkuaika).getFullYear()}`, kellonaika(a.alkuaika), kellonaika(a.loppuaika),
+      a.lahtopaikka, koordinaatti(a.sijaintiAlku?.lat), koordinaatti(a.sijaintiAlku?.lon),
+      a.maaranpaa, koordinaatti(a.sijaintiLoppu?.lat), koordinaatti(a.sijaintiLoppu?.lon),
+      a.tarkoitus, a.mittariAlku, a.mittariLoppu, ajonKm(a), a.lisamatkustajat ?? 0, a.perakarry ? 'kyllä' : 'ei',
+    ]);
+  return BOM + [CSV_SARAKKEET, ...rivit].map((r) => r.map(csvKentta).join(';')).join(RIVINVAIHTO) + RIVINVAIHTO;
+}
+
+function vieCsv(ajot) {
+  const d = new Date(ajot[0].alkuaika);
+  const nimi = `ajopaivakirja-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}.csv`;
+  jaaTiedosto(nimi, ajojenCsv(ajot), 'text/csv');
+}
+
+// iPhonella avautuu jakovalikko (Tiedostot, Mail). Muualla tiedosto ladataan.
+// Palauttaa false, jos käyttäjä sulki jakovalikon.
+async function jaaTiedosto(nimi, sisalto, tyyppi) {
+  const tiedosto = new File([sisalto], nimi, { type: tyyppi });
+  if (navigator.canShare?.({ files: [tiedosto] })) {
+    try {
+      await navigator.share({ files: [tiedosto] });
+      return true;
+    } catch (e) {
+      if (e.name === 'AbortError') return false;
+    }
+  }
+  const linkki = document.createElement('a');
+  linkki.href = URL.createObjectURL(tiedosto);
+  linkki.download = nimi;
+  linkki.click();
+  setTimeout(() => URL.revokeObjectURL(linkki.href), 1000);
+  return true;
+}
+
+// --- Varmuuskopio ---
+
+const VARMUUSKOPIO_AVAIN = 'viimeisinVarmuuskopio';
+const VARMUUSKOPIO_PAIVAT = 7;
+const VARMUUSKOPIO_AJOT = 20;
+
+// Kaikki ajot viimeisimmästä latauksesta. Varmuuskopio muodostetaan näistä ilman
+// tietokannan odottelua, jotta iOS:n jakovalikko avautuu saman napautuksen seurauksena.
+let ajotMuistissa = [];
+
+// "30.10.2026"
+function paivays(iso) {
+  return `${paiva(iso)}${new Date(iso).getFullYear()}`;
+}
+
+// Yli 7 päivää tai yli 20 ajoa edellisestä varmuuskopiosta. Jos kopiota ei ole,
+// lasketaan ensimmäisestä ajosta.
+function varmuuskopioMyohassa(ajot) {
+  const valmiit = ajot.filter((a) => a.tila === 'valmis');
+  if (!valmiit.length) return false;
+  const viimeisin = localStorage.getItem(VARMUUSKOPIO_AVAIN)
+    ?? valmiit.reduce((aikaisin, a) => (a.alkuaika < aikaisin ? a.alkuaika : aikaisin), valmiit[0].alkuaika);
+  const uusia = valmiit.filter((a) => a.loppuaika > viimeisin).length;
+  return Date.now() - Date.parse(viimeisin) > VARMUUSKOPIO_PAIVAT * VUOROKAUSI_MS || uusia > VARMUUSKOPIO_AJOT;
+}
+
+async function varmuuskopioi() {
+  const nyt = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const nimi = `ajopaivakirja-varmuuskopio-${nyt.getFullYear()}-${p(nyt.getMonth() + 1)}-${p(nyt.getDate())}.json`;
+  const sisalto = JSON.stringify({ sovellus: 'ajopaivakirja', versio: 1, luotu: nyt.toISOString(), ajot: ajotMuistissa }, null, 2);
+  const onnistui = await jaaTiedosto(nimi, sisalto, 'application/json');
+  if (onnistui) localStorage.setItem(VARMUUSKOPIO_AVAIN, nyt.toISOString());
+  return onnistui;
+}
+
+// Palauttaa tarkistetun varmuuskopion tai heittää virheen, jonka viesti näytetään käyttäjälle.
+function tarkistaVarmuuskopio(teksti) {
+  let data;
+  try {
+    data = JSON.parse(teksti);
+  } catch {
+    throw new Error('Tiedosto ei ole ajopäiväkirjan varmuuskopio.');
+  }
+  if (data?.sovellus !== 'ajopaivakirja' || !Array.isArray(data.ajot)) {
+    throw new Error('Tiedosto ei ole ajopäiväkirjan varmuuskopio.');
+  }
+  if (data.versio !== 1) throw new Error('Varmuuskopion versiota ei tunneta.');
+  const onAika = (s) => typeof s === 'string' && !Number.isNaN(Date.parse(s));
+  const onLukema = (x) => Number.isInteger(x) && x >= 0;
+  const kelpaa = (a) => Number.isInteger(a?.id) && onAika(a.alkuaika) && (a.tila === 'avoin'
+    || (a.tila === 'valmis' && onAika(a.loppuaika) && onLukema(a.mittariAlku) && onLukema(a.mittariLoppu)));
+  if (!data.ajot.every(kelpaa)) throw new Error('Varmuuskopiossa on virheellinen ajo.');
+  if (new Set(data.ajot.map((a) => a.id)).size !== data.ajot.length) throw new Error('Varmuuskopiossa on sama ajo kahdesti.');
+  if (data.ajot.filter((a) => a.tila === 'avoin').length > 1) throw new Error('Varmuuskopiossa on useampi käynnissä oleva ajo.');
+  return data;
+}
+
+$('pk-varmuuskopioi').addEventListener('click', async () => {
+  if (await varmuuskopioi()) avaaPaivakirja(window.scrollY, 'Varmuuskopio otettu.');
+});
+
+$('muistutus-varmuuskopioi').addEventListener('click', async () => {
+  if (await varmuuskopioi()) naytaPaa('Varmuuskopio otettu.');
+});
+
+$('pk-tuo').addEventListener('click', () => $('pk-tiedosto').click());
+
+$('pk-tiedosto').addEventListener('change', async (e) => {
+  const tiedosto = e.target.files[0];
+  e.target.value = '';
+  if (!tiedosto) return;
+
+  let kopio;
+  try {
+    kopio = tarkistaVarmuuskopio(await tiedosto.text());
+  } catch (virhe) {
+    return avaaPaivakirja(0, virhe.message);
+  }
+  const nykyiset = await db.trips.count();
+  const ajoja = (n) => `${n} ${n === 1 ? 'ajo' : 'ajoa'}`;
+  const teksti = `Palautetaanko ${paivays(kopio.luotu)} otettu varmuuskopio (${ajoja(kopio.ajot.length)})?`
+    + (nykyiset ? ` Nykyiset tiedot (${ajoja(nykyiset)}) korvataan.` : '');
+  if (!await vahvista(teksti, 'Palauta')) return;
+
+  await db.transaction('rw', db.trips, async () => {
+    await db.trips.clear();
+    await db.trips.bulkAdd(kopio.ajot);
+  });
+  localStorage.setItem(VARMUUSKOPIO_AVAIN, new Date().toISOString());
+  avaaPaivakirja(0, `Varmuuskopio palautettu, ${ajoja(kopio.ajot.length)}.`);
 });
 
 // --- Käynnistys ---
