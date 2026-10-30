@@ -431,8 +431,8 @@ $('lopetus').addEventListener('submit', async (e) => {
   naytaPaa(`Ajo tallennettu, ${km.format(mittariLoppu - mittariAlku)} km.`, true);
 });
 
-// Peruutus palauttaa ajon käynnissä olevaksi.
-$('l-peruuta').addEventListener('click', async () => {
+// Takaisin peruu lopetuksen: ajo jatkuu käynnissä.
+$('l-takaisin').addEventListener('click', async () => {
   lopetusKerta++;
   await db.trips.update(Number($('lopetus').dataset.id), { loppuaika: undefined, sijaintiLoppu: undefined });
   naytaPaa();
@@ -574,7 +574,7 @@ $('muokkaus').addEventListener('submit', async (e) => {
   avaaPaivakirja(paivakirjanVieritys);
 });
 
-$('m-peruuta').addEventListener('click', () => avaaPaivakirja(paivakirjanVieritys));
+$('m-takaisin').addEventListener('click', () => avaaPaivakirja(paivakirjanVieritys));
 
 $('m-poista').addEventListener('click', async () => {
   const ajo = await db.trips.get(Number($('muokkaus').dataset.id));

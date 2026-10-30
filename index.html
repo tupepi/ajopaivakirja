@@ -41,8 +41,10 @@
     min-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .alareuna > .ala { margin-top: auto; }
   .alapalkki { display: flex; justify-content: space-between; }
-  .ylapalkki { display: flex; justify-content: flex-end; }
+  /* Yläpalkki: Takaisin vasemmalla, poisto oikealla, kaukana alareunan päätoiminnosta. */
+  .ylapalkki { display: flex; justify-content: space-between; }
   .ylapalkki .linkki { padding-top: 0; }
+  .ylapalkki .poisto { margin-left: auto; }
   #pk-lista ul { list-style: none; padding: 0; }
   .rivi { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid #ddd; padding: .75rem 0; color: inherit; }
   .rivi span { display: block; }
@@ -97,7 +99,9 @@
 </section>
 
 <section id="paivakirja" hidden>
-  <button type="button" id="pk-takaisin" class="linkki">← Takaisin</button>
+  <div class="ylapalkki">
+    <button type="button" id="pk-takaisin" class="linkki">← Takaisin</button>
+  </div>
   <h1>Ajopäiväkirja</h1>
   <div class="alapalkki">
     <button type="button" id="pk-varmuuskopioi" class="linkki">Varmuuskopioi</button>
@@ -110,6 +114,10 @@
 </section>
 
 <form id="muokkaus" hidden novalidate>
+  <div class="ylapalkki">
+    <button type="button" id="m-takaisin" class="linkki">← Takaisin</button>
+    <button type="button" id="m-poista" class="linkki poisto">Poista ajo</button>
+  </div>
   <h1>Muokkaa ajoa</h1>
   <label>Alkuaika
     <input id="m-alkuaika" type="datetime-local">
@@ -138,10 +146,6 @@
   <label class="valinta"><input id="m-perakarry" type="checkbox"> Peräkärry</label>
   <p class="viesti" role="alert"></p>
   <button class="iso">Tallenna</button>
-  <div class="alapalkki">
-    <button type="button" id="m-peruuta" class="linkki">Peruuta</button>
-    <button type="button" id="m-poista" class="linkki poisto">Poista ajo</button>
-  </div>
 </form>
 
 <form id="aloitus" class="alareuna" hidden novalidate>
@@ -161,6 +165,9 @@
 </form>
 
 <form id="lopetus" class="alareuna" hidden novalidate>
+  <div class="ylapalkki">
+    <button type="button" id="l-takaisin" class="linkki">← Takaisin</button>
+  </div>
   <h1>Lopeta ajo</h1>
   <p id="l-ajat"></p>
   <div class="ala">
@@ -197,7 +204,6 @@
     </details>
     <p class="viesti" role="alert"></p>
     <button class="iso">Tallenna</button>
-    <button type="button" id="l-peruuta" class="linkki">Peruuta</button>
   </div>
 </form>
 
