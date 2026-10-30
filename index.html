@@ -4,9 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ajopäiväkirja</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Ajopäiväkirja">
+<meta name="theme-color" content="#ffffff">
 <style>
   [hidden] { display: none !important; }
-  body { font: 18px/1.4 system-ui, sans-serif; max-width: 30rem; margin: 0 auto; padding: 1rem; }
+  /* Asennetussa sovelluksessa sisältö pysyy erossa lovesta ja kotipalkista. */
+  body { font: 18px/1.4 system-ui, sans-serif; max-width: 30rem; margin: 0 auto;
+    padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right))
+      calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left)); }
+  #asennusohje { background: #fef3c7; border-radius: .5rem; padding: 0 1rem; margin-bottom: 1rem; }
   /* Vähintään 16 px estää iOS:n automaattisen zoomauksen kenttään. */
   input, button { font: inherit; }
   input:not([type=checkbox]) { display: block; width: 100%; box-sizing: border-box; padding: .5rem; }
@@ -20,9 +29,13 @@
   .poisto { color: #b91c1c; }
   .viesti { color: #b91c1c; }
   .vihje { color: #666; }
-  #paa { display: flex; flex-direction: column; min-height: calc(100dvh - 2rem); }
+  /* Napit ja kentät alareunaan peukalon ulottuville; .ala-osa painuu alas. */
+  .alareuna { display: flex; flex-direction: column;
+    min-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .alareuna > .ala { margin-top: auto; }
   .alapalkki { display: flex; justify-content: space-between; }
-  #paa .alapalkki { margin-top: auto; }
+  .ylapalkki { display: flex; justify-content: flex-end; }
+  .ylapalkki .linkki { padding-top: 0; }
   #pk-lista ul { list-style: none; padding: 0; }
   .rivi { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid #ddd; padding: .75rem 0; color: inherit; }
   .rivi span { display: block; }
@@ -42,27 +55,37 @@
 </head>
 <body>
 
-<section id="paa" hidden>
-  <p id="ilmoitus" role="status"></p>
-  <div id="muistutus" hidden>
-    <p id="muistutus-teksti"></p>
-    <button type="button" id="muistutus-varmuuskopioi">Varmuuskopioi nyt</button>
-  </div>
-
-  <div id="ei-ajoa" hidden>
-    <button type="button" id="aloita" class="iso">Aloita ajo</button>
-    <p id="edellinen" class="vihje"></p>
-  </div>
-
-  <div id="ajo-kaynnissa" hidden>
-    <p id="auki-varoitus" class="viesti" hidden>Ajo on ollut auki yli vuorokauden. Korjaa lopetusaika, kun lopetat ajon.</p>
-    <p id="alkanut"></p>
-    <button type="button" id="lopeta" class="iso">Lopeta ajo</button>
-  </div>
-
-  <div class="alapalkki">
-    <button type="button" id="avaa-paivakirja" class="linkki">Ajopäiväkirja</button>
+<section id="paa" class="alareuna" hidden>
+  <!-- Poisto yläreunassa, kaukana alareunan Lopeta-napista. -->
+  <div class="ylapalkki">
     <button type="button" id="poista" class="linkki poisto" hidden>Poista tämä ajo</button>
+  </div>
+  <div id="asennusohje" hidden>
+    <p><strong>Asenna sovellus ennen käyttöä.</strong> Napauta Safarin Jaa-painiketta ja valitse ”Lisää Koti-valikkoon”. Avaa sovellus sen jälkeen Koti-valikon kuvakkeesta.</p>
+    <p class="vihje">Safarissa tallennetut ajot eivät siirry asennettuun sovellukseen.</p>
+  </div>
+
+  <div class="ala">
+    <p id="ilmoitus" role="status"></p>
+    <div id="muistutus" hidden>
+      <p id="muistutus-teksti"></p>
+      <button type="button" id="muistutus-varmuuskopioi">Varmuuskopioi nyt</button>
+    </div>
+
+    <div id="ei-ajoa" hidden>
+      <p id="edellinen" class="vihje"></p>
+      <button type="button" id="aloita" class="iso">Aloita ajo</button>
+    </div>
+
+    <div id="ajo-kaynnissa" hidden>
+      <p id="auki-varoitus" class="viesti" hidden>Ajo on ollut auki yli vuorokauden. Korjaa lopetusaika, kun lopetat ajon.</p>
+      <p id="alkanut"></p>
+      <button type="button" id="lopeta" class="iso">Lopeta ajo</button>
+    </div>
+
+    <div class="alapalkki">
+      <button type="button" id="avaa-paivakirja" class="linkki">Ajopäiväkirja</button>
+    </div>
   </div>
 </section>
 
@@ -114,57 +137,61 @@
   </div>
 </form>
 
-<form id="aloitus" hidden novalidate>
+<form id="aloitus" class="alareuna" hidden novalidate>
   <h1 id="a-otsikko"></h1>
-  <label>Mittarin alkulukema (km)
-    <input id="a-mittari" inputmode="numeric" autocomplete="off">
-  </label>
-  <div id="a-rulla" class="rulla" hidden></div>
-  <label>Lähtöpaikka
-    <input id="a-paikka" list="paikat" autocomplete="off">
-  </label>
-  <p id="a-sijainti" class="vihje"></p>
-  <p class="viesti" role="alert"></p>
-  <button class="iso">Tallenna</button>
+  <div class="ala">
+    <label>Mittarin alkulukema (km)
+      <input id="a-mittari" inputmode="numeric" autocomplete="off">
+    </label>
+    <div id="a-rulla" class="rulla" hidden></div>
+    <label>Lähtöpaikka
+      <input id="a-paikka" list="paikat" autocomplete="off">
+    </label>
+    <p id="a-sijainti" class="vihje"></p>
+    <p class="viesti" role="alert"></p>
+    <button class="iso">Tallenna</button>
+  </div>
 </form>
 
-<form id="lopetus" hidden novalidate>
+<form id="lopetus" class="alareuna" hidden novalidate>
   <h1>Lopeta ajo</h1>
   <p id="l-ajat"></p>
-  <label id="l-aika-kentta">
-    <span class="viesti">Ajo oli auki yli vuorokauden. Korjaa lopetusaika.</span>
-    <input id="l-aika" type="datetime-local">
-  </label>
-  <div id="l-alku-kentta">
-    <label>Mittarin alkulukema (km)
-      <input id="l-alku" inputmode="numeric" autocomplete="off">
+  <div class="ala">
+    <label id="l-aika-kentta">
+      <span class="viesti">Ajo oli auki yli vuorokauden. Korjaa lopetusaika.</span>
+      <input id="l-aika" type="datetime-local">
     </label>
-    <div id="l-alku-rulla" class="rulla" hidden></div>
+    <div id="l-alku-kentta">
+      <label>Mittarin alkulukema (km)
+        <input id="l-alku" inputmode="numeric" autocomplete="off">
+      </label>
+      <div id="l-alku-rulla" class="rulla" hidden></div>
+    </div>
+    <label>Mittarin loppulukema (km)
+      <input id="l-loppu" inputmode="numeric" autocomplete="off">
+    </label>
+    <div id="l-loppu-rulla" class="rulla" hidden></div>
+    <label id="l-lahto-kentta">Lähtöpaikka
+      <input id="l-lahto" list="paikat" autocomplete="off">
+    </label>
+    <label>Määränpää
+      <input id="l-maaranpaa" list="paikat" autocomplete="off">
+    </label>
+    <p id="l-sijainti" class="vihje"></p>
+    <label>Tarkoitus
+      <input id="l-tarkoitus" list="tarkoitukset" autocomplete="off">
+    </label>
+    <details>
+      <summary>Lisätiedot</summary>
+      <label>Lisämatkustajat
+        <input id="l-matkustajat" inputmode="numeric" autocomplete="off" placeholder="0">
+      </label>
+      <label class="valinta"><input id="l-perakarry" type="checkbox"> Peräkärry</label>
+    </details>
+    <p class="viesti" role="alert"></p>
+    <button class="iso">Tallenna</button>
+    <button type="button" id="l-peruuta" class="linkki">Peruuta</button>
   </div>
-  <label>Mittarin loppulukema (km)
-    <input id="l-loppu" inputmode="numeric" autocomplete="off">
-  </label>
-  <div id="l-loppu-rulla" class="rulla" hidden></div>
-  <label id="l-lahto-kentta">Lähtöpaikka
-    <input id="l-lahto" list="paikat" autocomplete="off">
-  </label>
-  <label>Määränpää
-    <input id="l-maaranpaa" list="paikat" autocomplete="off">
-  </label>
-  <p id="l-sijainti" class="vihje"></p>
-  <label>Tarkoitus
-    <input id="l-tarkoitus" list="tarkoitukset" autocomplete="off">
-  </label>
-  <details>
-    <summary>Lisätiedot</summary>
-    <label>Lisämatkustajat
-      <input id="l-matkustajat" inputmode="numeric" autocomplete="off" placeholder="0">
-    </label>
-    <label class="valinta"><input id="l-perakarry" type="checkbox"> Peräkärry</label>
-  </details>
-  <p class="viesti" role="alert"></p>
-  <button class="iso">Tallenna</button>
-  <button type="button" id="l-peruuta" class="linkki">Peruuta</button>
 </form>
 
 <datalist id="paikat"></datalist>

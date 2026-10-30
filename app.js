@@ -122,13 +122,13 @@ function nayta(nakyma) {
 
 function nollaaLomake(lomake) {
   lomake.reset();
-  lomake.querySelector('.viesti').textContent = '';
+  lomake.querySelector('[role=alert]').textContent = '';
   delete lomake.dataset.kuitattu;
 }
 
 // Virhe estää tallennuksen. Varoitus näytetään kerran, ja toinen painallus tallentaa.
 function tarkista(lomake, virheet, varoitukset) {
-  const viesti = lomake.querySelector('.viesti');
+  const viesti = lomake.querySelector('[role=alert]');
   if (virheet.length) {
     viesti.textContent = virheet.join(' ');
     delete lomake.dataset.kuitattu;
@@ -746,6 +746,17 @@ $('pk-tiedosto').addEventListener('change', async (e) => {
 });
 
 // --- Käynnistys ---
+
+// Service worker tallentaa sovelluksen tiedostot, jotta se aukeaa ilman verkkoa.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+// Pyydetään, ettei selain poista tietoja tilan puutteen vuoksi.
+navigator.storage?.persist?.();
+
+// Asennusohje vain iPhonen tai iPadin selaimessa, ei asennetussa sovelluksessa.
+const asennettu = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+$('asennusohje').hidden = asennettu || !ios;
 
 // Päivitetään pääruutu, kun sovellus palaa näkyviin (esim. auki jääneen ajon varoitus).
 document.addEventListener('visibilitychange', () => {
