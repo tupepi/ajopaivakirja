@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ajopäiväkirja</title>
+<style>
+  [hidden] { display: none !important; }
+  body { font: 18px/1.4 system-ui, sans-serif; max-width: 30rem; margin: 0 auto; padding: 1rem; }
+  /* Vähintään 16 px estää iOS:n automaattisen zoomauksen kenttään. */
+  input, button { font: inherit; }
+  input:not([type=checkbox]) { display: block; width: 100%; box-sizing: border-box; padding: .5rem; }
+  label { display: block; margin: 1rem 0; }
+  .valinta { display: flex; gap: .5rem; align-items: center; }
+  .iso { display: block; width: 100%; padding: 2.5rem 1rem; border: 0; border-radius: 1rem; font-size: 1.6rem; color: #fff; background: #1d4ed8; }
+  form .iso { padding: 1rem; font-size: 1.2rem; }
+  #aloita { background: #15803d; }
+  #lopeta { background: #c2410c; }
+  .linkki { background: none; border: 0; padding: 1rem 0; text-decoration: underline; color: inherit; }
+  #poista { color: #b91c1c; }
+  .viesti { color: #b91c1c; }
+  .vihje { color: #666; }
+  #paa, #ajo-kaynnissa { display: flex; flex-direction: column; flex: 1; }
+  #paa { min-height: calc(100dvh - 2rem); }
+  #poista { margin-top: auto; }
+  dialog button { margin: .5rem .5rem 0 0; padding: .5rem 1rem; }
+  .vaara { background: #b91c1c; color: #fff; border: 0; border-radius: .5rem; }
+  /* Mittarirulla: kolme 44 px riviä, valittu rivi keskellä korostettuna. */
+  label:has(+ .rulla) { margin-bottom: .25rem; }
+  .rulla { height: 132px; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none;
+    border: 1px solid #ccc; border-radius: .5rem; text-align: center; font-variant-numeric: tabular-nums;
+    background: linear-gradient(transparent 44px, #e0e7ff 44px, #e0e7ff 88px, transparent 88px); }
+  .rulla::before, .rulla::after { content: ''; display: block; height: 44px; }
+  .rulla div { height: 44px; line-height: 44px; scroll-snap-align: center; }
+  .rulla.koskematon { color: #999; }
+</style>
+<script src="vendor/dexie.min.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<section id="paa" hidden>
+  <p id="ilmoitus" role="status"></p>
+
+  <div id="ei-ajoa" hidden>
+    <button type="button" id="aloita" class="iso">Aloita ajo</button>
+    <p id="edellinen" class="vihje"></p>
+  </div>
+
+  <div id="ajo-kaynnissa" hidden>
+    <p id="auki-varoitus" class="viesti" hidden>Ajo on ollut auki yli vuorokauden. Korjaa lopetusaika, kun lopetat ajon.</p>
+    <p id="alkanut"></p>
+    <button type="button" id="lopeta" class="iso">Lopeta ajo</button>
+    <button type="button" id="poista" class="linkki">Poista tämä ajo</button>
+  </div>
+</section>
+
+<form id="aloitus" hidden novalidate>
+  <h1 id="a-otsikko"></h1>
+  <label>Mittarin alkulukema (km)
+    <input id="a-mittari" inputmode="numeric" autocomplete="off">
+  </label>
+  <div id="a-rulla" class="rulla" hidden></div>
+  <label>Lähtöpaikka
+    <input id="a-paikka" list="paikat" autocomplete="off">
+  </label>
+  <p id="a-sijainti" class="vihje"></p>
+  <p class="viesti" role="alert"></p>
+  <button class="iso">Tallenna</button>
+</form>
+
+<form id="lopetus" hidden novalidate>
+  <h1>Lopeta ajo</h1>
+  <p id="l-ajat"></p>
+  <label id="l-aika-kentta">
+    <span class="viesti">Ajo oli auki yli vuorokauden. Korjaa lopetusaika.</span>
+    <input id="l-aika" type="datetime-local">
+  </label>
+  <div id="l-alku-kentta">
+    <label>Mittarin alkulukema (km)
+      <input id="l-alku" inputmode="numeric" autocomplete="off">
+    </label>
+    <div id="l-alku-rulla" class="rulla" hidden></div>
+  </div>
+  <label>Mittarin loppulukema (km)
+    <input id="l-loppu" inputmode="numeric" autocomplete="off">
+  </label>
+  <div id="l-loppu-rulla" class="rulla" hidden></div>
+  <label id="l-lahto-kentta">Lähtöpaikka
+    <input id="l-lahto" list="paikat" autocomplete="off">
+  </label>
+  <label>Määränpää
+    <input id="l-maaranpaa" list="paikat" autocomplete="off">
+  </label>
+  <p id="l-sijainti" class="vihje"></p>
+  <label>Tarkoitus
+    <input id="l-tarkoitus" list="tarkoitukset" autocomplete="off">
+  </label>
+  <details>
+    <summary>Lisätiedot</summary>
+    <label>Lisämatkustajat
+      <input id="l-matkustajat" inputmode="numeric" autocomplete="off" placeholder="0">
+    </label>
+    <label class="valinta"><input id="l-perakarry" type="checkbox"> Peräkärry</label>
+  </details>
+  <p class="viesti" role="alert"></p>
+  <button class="iso">Tallenna</button>
+  <button type="button" id="l-peruuta" class="linkki">Peruuta</button>
+</form>
+
+<datalist id="paikat"></datalist>
+<datalist id="tarkoitukset"></datalist>
+
+<dialog id="vahvistus">
+  <form method="dialog">
+    <p id="vahvistus-teksti"></p>
+    <button value="poista" class="vaara">Poista ajo</button>
+    <button value="takaisin" autofocus>Takaisin</button>
+  </form>
+</dialog>
+
+</body>
+</html>
