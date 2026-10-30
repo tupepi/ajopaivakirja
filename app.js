@@ -748,7 +748,20 @@ $('pk-tiedosto').addEventListener('change', async (e) => {
 // --- Käynnistys ---
 
 // Service worker tallentaa sovelluksen tiedostot, jotta se aukeaa ilman verkkoa.
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+// Päivitys tarkistetaan avattaessa ja näkyviin palatessa, koska selain ei tee
+// sitä luotettavasti itse. Uusi versio otetaan heti käyttöön pääruudulla, mutta
+// kesken olevaa lomaketta ei keskeytetä.
+let tarkistaPaivitys = () => {};
+if ('serviceWorker' in navigator) {
+  const oliKaytossa = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.register('sw.js').then((rekisteri) => {
+    tarkistaPaivitys = () => rekisteri.update().catch(() => {});
+    tarkistaPaivitys();
+  });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (oliKaytossa && !$('paa').hidden) location.reload();
+  });
+}
 
 // Pyydetään, ettei selain poista tietoja tilan puutteen vuoksi.
 navigator.storage?.persist?.();
@@ -760,7 +773,9 @@ $('asennusohje').hidden = asennettu || !ios;
 
 // Päivitetään pääruutu, kun sovellus palaa näkyviin (esim. auki jääneen ajon varoitus).
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !$('paa').hidden) naytaPaa();
+  if (document.visibilityState !== 'visible') return;
+  tarkistaPaivitys();
+  if (!$('paa').hidden) naytaPaa();
 });
 
 naytaPaa();

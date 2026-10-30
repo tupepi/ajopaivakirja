@@ -2,7 +2,7 @@
 
 // Kasvata versiota aina, kun jokin alla olevista tiedostoista muuttuu.
 // Muuten asennettu sovellus jatkaa vanhojen tiedostojen käyttöä.
-const VERSIO = 'ajopaivakirja-2';
+const VERSIO = 'ajopaivakirja-3';
 const TIEDOSTOT = [
   './',
   'index.html',
@@ -15,13 +15,20 @@ const TIEDOSTOT = [
   'icons/apple-touch-icon.png',
 ];
 
+// Tiedostot haetaan versionumerolla, jotta Cloudflaren välimuisti ei voi antaa
+// vanhaa tiedostoa uuden rinnalle. cache: 'reload' ohittaa selaimen välimuistin.
+// Välimuistiin ne tallennetaan ilman versionumeroa. Yksikin epäonnistunut haku
+// keskeyttää asennuksen, jolloin vanha versio jää käyttöön.
 self.addEventListener('install', (e) => {
-  // cache: 'reload' ohittaa selaimen HTTP-välimuistin, jotta uusi versio tallentuu varmasti.
-  e.waitUntil(
-    caches.open(VERSIO)
-      .then((valimuisti) => valimuisti.addAll(TIEDOSTOT.map((url) => new Request(url, { cache: 'reload' }))))
-      .then(() => self.skipWaiting()),
-  );
+  e.waitUntil((async () => {
+    const valimuisti = await caches.open(VERSIO);
+    await Promise.all(TIEDOSTOT.map(async (url) => {
+      const vastaus = await fetch(`${url}?v=${VERSIO}`, { cache: 'reload' });
+      if (!vastaus.ok) throw new Error(`${url}: ${vastaus.status}`);
+      await valimuisti.put(url, vastaus);
+    }));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (e) => {
