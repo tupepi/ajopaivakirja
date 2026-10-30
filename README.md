@@ -2,7 +2,7 @@
 
 Yksinkertainen ajopäiväkirja iPhonelle työajojen kirjaamiseen matkalaskua varten. Ajo aloitetaan ja lopetetaan yhdellä napilla, ja kuukauden ajot viedään CSV-tiedostona matkalaskun liitteeksi.
 
-**Sovellus:** https://tupepi.github.io/ajopaivakirja/
+**Sovellus:** https://tuukkap.com/ajopaivakirja/
 
 ## Ominaisuudet
 
@@ -24,7 +24,7 @@ Koska tiedot ovat vain puhelimessa, ota varmuuskopio säännöllisesti.
 
 ## Asennus iPhonelle
 
-1. Avaa https://tupepi.github.io/ajopaivakirja/ Safarissa.
+1. Avaa https://tuukkap.com/ajopaivakirja/ Safarissa.
 2. Napauta Jaa-painiketta ja valitse **Lisää Koti-valikkoon**.
 3. Avaa sovellus Koti-valikon kuvakkeesta ja salli sijainti, kun sitä kysytään.
 
