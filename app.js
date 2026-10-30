@@ -451,6 +451,7 @@ async function avaaPaivakirja(vieritys = 0, ilmoitus = '') {
   const viimeisin = localStorage.getItem(VARMUUSKOPIO_AVAIN);
   $('pk-varmuuskopio').textContent = viimeisin ? `Edellinen varmuuskopio ${paivays(viimeisin)}` : 'Varmuuskopiota ei ole vielä otettu.';
   $('pk-ilmoitus').textContent = ilmoitus;
+  naytaVersio();
   const kuukaudet = new Map();
   for (const ajo of ajot) {
     const d = new Date(ajo.alkuaika);
@@ -763,6 +764,18 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (oliKaytossa && !$('paa').hidden) location.reload();
   });
+}
+
+// Versio kysytään service workerilta, koska se määritellään vain sw.js:ssä.
+// Ilman service workeria (esim. ensimmäisellä avauksella) versiota ei näytetä.
+function naytaVersio() {
+  const sw = navigator.serviceWorker?.controller;
+  if (!sw) return;
+  const kanava = new MessageChannel();
+  kanava.port1.onmessage = (e) => {
+    $('pk-versio').textContent = `Versio ${String(e.data).replace('ajopaivakirja-', '')}`;
+  };
+  sw.postMessage('versio', [kanava.port2]);
 }
 
 // Pyydetään, ettei selain poista tietoja tilan puutteen vuoksi.

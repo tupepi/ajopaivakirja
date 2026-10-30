@@ -2,7 +2,7 @@
 
 // Kasvata versiota aina, kun jokin alla olevista tiedostoista muuttuu.
 // Muuten asennettu sovellus jatkaa vanhojen tiedostojen käyttöä.
-const VERSIO = 'ajopaivakirja-4';
+const VERSIO = 'ajopaivakirja-5';
 const TIEDOSTOT = [
   './',
   'index.html',
@@ -43,4 +43,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((vastaus) => vastaus ?? fetch(e.request)));
+});
+
+// Sivu kysyy käytössä olevan version näyttääkseen sen päiväkirjan alareunassa.
+self.addEventListener('message', (e) => {
+  if (e.data === 'versio') e.ports[0]?.postMessage(VERSIO);
 });

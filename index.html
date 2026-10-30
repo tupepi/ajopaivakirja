@@ -36,6 +36,7 @@
   .poisto { color: #b91c1c; }
   .viesti { color: #b91c1c; }
   .vihje { color: #666; }
+  .versio { color: #aaa; font-size: .8rem; text-align: center; margin-top: 2rem; }
   /* Napit ja kentät alareunaan peukalon ulottuville; .ala-osa painuu alas. */
   .alareuna { display: flex; flex-direction: column;
     min-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
@@ -114,6 +115,7 @@
   <p id="pk-varmuuskopio" class="vihje"></p>
   <p id="pk-ilmoitus" role="status"></p>
   <div id="pk-lista"></div>
+  <p id="pk-versio" class="versio"></p>
 </section>
 
 <form id="muokkaus" hidden novalidate>
