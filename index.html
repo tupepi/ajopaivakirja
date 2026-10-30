@@ -50,13 +50,16 @@
   .rivi span { display: block; }
   dialog button { margin: .5rem .5rem 0 0; padding: .5rem 1rem; }
   .vaara { background: #b91c1c; color: #fff; border: 0; border-radius: .5rem; }
-  /* Mittarirulla: kolme 44 px riviä, valittu rivi keskellä korostettuna. */
+  /* Mittarirulla: kolme riviä, valittu rivi keskellä korostettuna.
+     Rivin korkeus määrätään vain --rivi-muuttujalla; app.js lukee sen täältä. */
   label:has(+ .rulla) { margin-bottom: .25rem; }
-  .rulla { height: 132px; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none;
-    border: 1px solid #ccc; border-radius: .5rem; text-align: center; font-variant-numeric: tabular-nums;
-    background: linear-gradient(transparent 44px, #e0e7ff 44px, #e0e7ff 88px, transparent 88px); }
-  .rulla::before, .rulla::after { content: ''; display: block; height: 44px; }
-  .rulla div { height: 44px; line-height: 44px; scroll-snap-align: center; }
+  .rulla { --rivi: 52px; height: calc(3 * var(--rivi)); overflow-y: scroll; scroll-snap-type: y mandatory;
+    scrollbar-width: none; border: 1px solid #ccc; border-radius: .5rem; text-align: center;
+    font-size: 1.2rem; font-variant-numeric: tabular-nums;
+    background: linear-gradient(transparent var(--rivi), #e0e7ff var(--rivi),
+      #e0e7ff calc(2 * var(--rivi)), transparent calc(2 * var(--rivi))); }
+  .rulla::before, .rulla::after { content: ''; display: block; height: var(--rivi); }
+  .rulla div { height: var(--rivi); line-height: var(--rivi); scroll-snap-align: center; }
   .rulla.koskematon { color: #999; }
 </style>
 <script src="vendor/dexie.min.js" defer></script>

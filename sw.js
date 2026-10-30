@@ -2,7 +2,7 @@
 
 // Kasvata versiota aina, kun jokin alla olevista tiedostoista muuttuu.
 // Muuten asennettu sovellus jatkaa vanhojen tiedostojen käyttöä.
-const VERSIO = 'ajopaivakirja-3';
+const VERSIO = 'ajopaivakirja-4';
 const TIEDOSTOT = [
   './',
   'index.html',

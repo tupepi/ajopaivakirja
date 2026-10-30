@@ -213,13 +213,15 @@ let lopetusKerta = 0;
 // Mittarirulla alkaa annetusta lukemasta ja kasvaa alaspäin rullattaessa.
 // Kenttä pysyy tyhjänä, kunnes rullaa liikutetaan tai lukema kirjoitetaan.
 const RULLAN_RIVIT = 1000;
-const RIVI_PX = 44;
 
 function liitaRulla(input, rulla, alku) {
   rulla.onscroll = null;
   input.oninput = null;
   rulla.hidden = alku == null;
   if (alku == null) return;
+
+  // Rivin korkeus tulee CSS:n --rivi-muuttujasta, jotta koko on määritelty yhdessä paikassa.
+  const RIVI_PX = parseFloat(getComputedStyle(rulla).getPropertyValue('--rivi'));
 
   rulla.replaceChildren(...Array.from({ length: RULLAN_RIVIT }, (_, i) => {
     const rivi = document.createElement('div');
